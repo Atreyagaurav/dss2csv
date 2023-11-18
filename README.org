@@ -1,0 +1,3 @@
+Utility to convert .dss file formats into .csv format.
+
+Extracts all the timeseries in a dss file into CSV files in the current directory.
