@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
   int status, i, j;
   long lbyte;
 
-  if (argc < 2) {
+  if (argc < 3) {
     printf("\nUsage: %s command dss_file.dss [rng]\n", argv[0]);
     printf("\ncommand: l for listing the available paths.\n");
     printf("\ncommand: e for extracting the timeseries.\n");
