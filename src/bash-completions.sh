@@ -5,7 +5,7 @@ _dss2csv() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     
-    opts="l e h list extract help"
+    opts="l t g h list timeseries grid help"
     if [[ ${COMP_CWORD} -eq 1 ]] ; then
 	COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
 	return 0;
