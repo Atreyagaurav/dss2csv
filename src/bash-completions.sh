@@ -5,7 +5,7 @@ _dss2csv() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     
-    opts="l e"
+    opts="l e h list extract help"
     if [[ ${COMP_CWORD} -eq 1 ]] ; then
 	COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
 	return 0;
@@ -15,4 +15,4 @@ _dss2csv() {
     return 0;
 }
 
-complete -F _dss2csv -o bashdefault -o default dss2csv
+complete -F _dss2csv -o bashdefault -o dirnames dss2csv

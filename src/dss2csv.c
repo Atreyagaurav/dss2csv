@@ -94,7 +94,22 @@ int save_paths(long long *ifltab, zStructCatalog *catStruct, int start, int end)
       fclose(fp);
     }
   return STATUS_OKAY;
-  }
+}
+
+void print_help(char *name){
+    printf("\nUsage: %s command dss_file.dss [rng]\n", name);
+    printf("\nCommands:\n"
+	   "    help[h]      : print this help menu.\n"
+           "    list[l]      : list the available paths.\n"
+	   "    extract[e]   : extract the timeseries for paths.\n"
+	   "Arguments:\n"
+	   "    dss_file.dss : dss file to operate on.\n"
+	   "    rng          : Range of the chosen timeseries use in format M-N\n"
+	   "                   where M is start and N is the end number (inclusive)\n"
+	   "                   Omitting the start or end will default in available\n"
+	   "                   start or the end. (e.g. 1-5 or -5 or 5-)\n"
+	   "                   [Optional: Defaults to all available]\n");
+}
 
 int main(int argc, char *argv[]) {
   long long ifltab[250];
@@ -112,12 +127,10 @@ int main(int argc, char *argv[]) {
   long lbyte;
 
   if (argc < 3) {
-    printf("\nUsage: %s command dss_file.dss [rng]\n", argv[0]);
-    printf("\ncommand: l for listing the available paths.\n");
-    printf("\ncommand: e for extracting the timeseries.\n");
-    printf("Argument: rng for choosing the limits (e.g. 1-5 or -5 or 5-),"
-	   " defaults to all, should be integer "
-           "range\n");
+    if (argv[1][0] != 'h'){
+      printf("Not enough arguments.\n\n");
+    }
+    print_help(argv[0]);
     return -1;
   }
   zsetMessageLevel(0, 0);
@@ -148,6 +161,9 @@ int main(int argc, char *argv[]) {
   }
 
   switch (argv[1][0]) {
+  case 'h':
+    print_help(argv[0]);
+    return 0;
   case 'l':
     list_paths(catStruct, start, end);
     break;
@@ -157,7 +173,8 @@ int main(int argc, char *argv[]) {
         return status;
     break;
   default:
-    printf("Unknown Command.\n");
+    printf("Unknown Command.\n\n");
+    print_help(argv[0]);
     return 1;
   }
   zstructFree(catStruct);
