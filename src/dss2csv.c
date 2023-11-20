@@ -155,12 +155,14 @@ int save_grid(long long *ifltab, zStructCatalog *catStruct, int start,
     }
     fclose(fp);
 
-    /* The given WKT format when inserted to prj file doesn't work in
-       WGIS, but putting it in WGIS custom input place works*/
-    /* dsspath2filename(outfilename_prj, catStruct->pathnameList[i], "prj"); */
-    /* fp = fopen(outfilename_prj, "w"); */
-    /* fprintf(fp, "%s\n", gridStructRetrieve->_srsDefinition); */
-    /* fclose(fp); */
+    /* Warning: The given WKT format when inserted to prj file doesn't
+       always work */
+    if (strcmp(gridStructRetrieve->_srsName, "WKT")) {
+      dsspath2filename(outfilename_prj, catStruct->pathnameList[i], "prj");
+      fp = fopen(outfilename_prj, "w");
+      fprintf(fp, "%s\n", gridStructRetrieve->_srsDefinition);
+      fclose(fp);
+    }
 
     zstructFree(gridStructRetrieve);
   }
