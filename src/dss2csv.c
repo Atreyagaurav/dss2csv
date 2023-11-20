@@ -139,8 +139,10 @@ int save_grid(long long *ifltab, zStructCatalog *catStruct, int start,
     data = (float *)gridStructRetrieve->_data;
     fprintf(fp, "NCOLS %d\n", gridStructRetrieve->_numberOfCellsX);
     fprintf(fp, "NROWS %d\n", gridStructRetrieve->_numberOfCellsY);
-    fprintf(fp, "XLLCENTER %d\n", gridStructRetrieve->_lowerLeftCellX);
-    fprintf(fp, "YLLCENTER %d\n", gridStructRetrieve->_lowerLeftCellY);
+    fprintf(fp, "XLLCENTER %f\n",
+	    gridStructRetrieve->_lowerLeftCellX * gridStructRetrieve->_cellSize);
+    fprintf(fp, "YLLCENTER %f\n",
+	    gridStructRetrieve->_lowerLeftCellY * gridStructRetrieve->_cellSize);
     fprintf(fp, "CELLSIZE %f\n", gridStructRetrieve->_cellSize);
     fprintf(fp, "NODATA_VALUE %f\n", gridStructRetrieve->_nullValue);
     int x, y;
@@ -153,10 +155,12 @@ int save_grid(long long *ifltab, zStructCatalog *catStruct, int start,
     }
     fclose(fp);
 
-    dsspath2filename(outfilename_prj, catStruct->pathnameList[i], "prj");
-    fp = fopen(outfilename_prj, "w");
-    fprintf(fp, "%s\n", gridStructRetrieve->_srsDefinition);
-    fclose(fp);
+    /* The given WKT format when inserted to prj file doesn't work in
+       WGIS, but putting it in WGIS custom input place works*/
+    /* dsspath2filename(outfilename_prj, catStruct->pathnameList[i], "prj"); */
+    /* fp = fopen(outfilename_prj, "w"); */
+    /* fprintf(fp, "%s\n", gridStructRetrieve->_srsDefinition); */
+    /* fclose(fp); */
 
     zstructFree(gridStructRetrieve);
   }
