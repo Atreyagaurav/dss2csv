@@ -137,21 +137,19 @@ int save_grid(long long *ifltab, zStructCatalog *catStruct, int start,
 
     printGridStruct(ifltab, 0, gridStructRetrieve);
     data = (float *)gridStructRetrieve->_data;
-    int dataSize = gridStructRetrieve->_numberOfCellsX *
-                   gridStructRetrieve->_numberOfCellsY;
-
     fprintf(fp, "NCOLS %d\n", gridStructRetrieve->_numberOfCellsX);
     fprintf(fp, "NROWS %d\n", gridStructRetrieve->_numberOfCellsY);
     fprintf(fp, "XLLCENTER %d\n", gridStructRetrieve->_lowerLeftCellX);
     fprintf(fp, "YLLCENTER %d\n", gridStructRetrieve->_lowerLeftCellY);
     fprintf(fp, "CELLSIZE %f\n", gridStructRetrieve->_cellSize);
     fprintf(fp, "NODATA_VALUE %f\n", gridStructRetrieve->_nullValue);
-
-    for (idx = 0; idx < dataSize; idx++) {
-      fprintf(fp, "%.2f ", data[idx]);
-      if ((idx + 1) % gridStructRetrieve->_numberOfCellsX == 0) {
-        fprintf(fp, "\n");
+    int x, y;
+    for (y = 0; y < gridStructRetrieve->_numberOfCellsY; y++) {
+      for (x = 0; x < gridStructRetrieve->_numberOfCellsX; x++) {
+        idx = (gridStructRetrieve->_numberOfCellsY - y) * gridStructRetrieve->_numberOfCellsX + x;
+        fprintf(fp, "%.2f ", data[idx]);
       }
+      fprintf(fp, "\n");
     }
     fclose(fp);
 
