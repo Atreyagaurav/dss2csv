@@ -1,3 +1,48 @@
-Utility to convert .dss file formats into .csv format.
+* Introduction
+Linux CLI Utility to convert .dss file formats into .csv format.
 
-Extracts all the timeseries in a dss file into CSV files in the current directory.
+Extracts all the timeseries in a dss file into CSV files, and all grids into ASCII grid files (can be read with GIS softwares) in the current directory.
+
+It's really hacky, and only does basic things, but since DSS files are binary files that we have no other way to read except for HEC built softwares like HEC-DSSVue, and the export from HEC-DSSVue doesn't even have CSV format, and except export fails if tried on too many series at once. I have been trying to make it for more than a year, and have finally succeeded in a prototype.
+
+I made it as all libraries I can find depends on the C library heclib, and don't compile at all in linux machine I have. And all libraries seem to only include the compiled binaries from the C library that are either not compatible, or have some problems in them. Even replacing the c files from the file downloaded from [[https://www.hec.usace.army.mil/confluence/dssdocs/dsscprogrammer/release-notes][HEC-DSS Programmers Guide for C]] didn't help.
+
+And while trying everything I found https://github.com/HydrologicEngineeringCenter/hec-dss/, trying to use the =heclib.a= compiled form that also didn't work. But the =libheclib.so= worked. So I've made this library, that can be compiled with the sharedlibrary and will need the shared libraries to run.
+
+I've included a =PKGBUILD= file to install it in archlinux (just do =makepkg -si= to install), it'll compile and copy the binary, shared library and the bash completion script to corresponding directories. There is also =Makefile= if you want to compile it and install/run it some other way. You only need =gcc= (c compiler).
+
+You can also compile your own shared libraries from =hec-dss= linked above and use that if the current one doesn't work. It might work with windows/mac as well that way but I haven't tested it.
+
+* Install
+use the =make= command to compile the c code using the =Makefile=. It'll generate =dss2csv= binary in =src/=.
+
+Or for Arch Linux, use =makepkg -si= command to build and install the binary, shared library and bash completion.
+
+* Usage
+Help menu:
+
+#+begin_example
+Usage: dss2csv command dss_file.dss [rng]
+
+Commands:
+    help[h]       : print this help menu.
+    list[l]       : list the available paths.
+    timeseries[t] : extract the timeseries for paths.
+    grid[g]       : extract the grid for paths.
+Arguments:
+    dss_file.dss  : dss file to operate on.
+    rng           : Range of the chosen timeseries use in format M-N
+                    where M is start and N is the end number (inclusive)
+                    Omitting the start or end will default in available
+                    start or the end. (e.g. 1-5 or -5 or 5-)
+                    [Optional: Defaults to all available]
+#+end_example
+
+Only the first character of the commands are actually checked, so you only need it. Long name are useful for readability only.
+
+Use =timeseries[t]= command for timeseries file and =grid[g]= for grid file, using the incompatible command will just make it exit without doing anything. the functions return error code, but I couldn't figure out how to print what error codes mean, instead of just knowing it's success or failure. I don't want to use the enums to compare all different errors and print them myself.
+
+I've tried to turn off all the log prints from the libraries with =zsetMessageLevel(0, 0);= but it doesn't work on the grid option. Couldn't find anything useful on the header files, so if you know let me know.
+
+* Bugs
+The ascii file generated is really simple file as I just wrote the read data into ascii format, but the plot from ascii file and DSSVue seems to be inverted, so I need to check that to make sure. I also have it ignore projection and all other details for the grid for now.
