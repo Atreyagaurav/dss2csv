@@ -12,7 +12,6 @@
 #include "hecdss/zdssKeys.h"
 #include "hecdss/zdssMessages.h"
 
-
 void read_range(char *rng, int *start, int *end) {
   int flag_start = 0;
   int flag_end = 0;
@@ -24,12 +23,12 @@ void read_range(char *rng, int *start, int *end) {
 
   int ind = 0;
   while (rng[ind] != 0) {
-    switch (rng[ind]){
+    switch (rng[ind]) {
     case '-':
       val = &val_end;
       flag = &flag_end;
       break;
-    case '0'...'9':
+    case '0' ... '9':
       *flag = 1;
       *val = *val * 10 + rng[ind] - '0';
       break;
@@ -38,154 +37,151 @@ void read_range(char *rng, int *start, int *end) {
     }
     ind += 1;
   }
-  if (flag_start) *start = val_start - 1 ;
-  if (flag_end) *end = val_end;
-  }
+  if (flag_start)
+    *start = val_start - 1;
 
-  void list_paths(zStructCatalog *catStruct, int start, int end) {
+  if (flag_end)
+    *end = val_end;
+  else if (rng[ind - 1] != '-') {
+    /* there is no '-' character means it's a single number and not a range */
+    *end = val_start;
+  }
+}
+
+void list_paths(zStructCatalog *catStruct, int start, int end) {
   int i;
   for (i = start; i < end; i++) {
     printf("%5d: %s\n", i + 1, catStruct->pathnameList[i]);
   }
+}
+
+void dsspath2filename(char *outfilename, char *path, char *ext) {
+  /* +1 here to skip the first '/' */
+  strcpy(outfilename, path + 1);
+  int ind = 0;
+  while (outfilename[ind] != 0) {
+    switch (outfilename[ind]) {
+    case '/':
+      outfilename[ind] = '_';
+    default:
+      break;
+    }
+    ind += 1;
   }
-  
-int save_paths(long long *ifltab, zStructCatalog *catStruct, int start, int end) {
+  /* -1 here to change the last '/' (now '_') to '.' */
+  outfilename[ind - 1] = '.';
+  strcat(outfilename, ext);
+}
+
+int save_paths(long long *ifltab, zStructCatalog *catStruct, int start,
+               int end) {
   int i;
   zStructTimeSeries *tss1;
   char cdate[13], ctime[10];
   char outfilename[_MAX_PATH];
   int status;
-  
+
   for (i = start; i < end; i++) {
-      /* +1 here to skip the first '/' */
-      strcpy(outfilename, catStruct->pathnameList[i] + 1);
-      int ind = 0;
-      while (outfilename[ind] != 0) {
-        switch (outfilename[ind]) {
-        case '/':
-          outfilename[ind] = '_';
-        default:
-          break;
-        }
-        ind += 1;
+    dsspath2filename(outfilename, catStruct->pathnameList[i], "csv");
+    printf("%5d: %s\n", i + 1, outfilename);
+
+    tss1 = zstructTsNew(catStruct->pathnameList[i]);
+    status = ztsRetrieve(ifltab, tss1, -1, 1, 1);
+    if (status != STATUS_OKAY)
+      return status;
+    FILE *fp = fopen(outfilename, "w");
+    int t;
+
+    fprintf(fp, "index,date,time,value\n");
+    for (t = 0; t < tss1->numberValues; t++) {
+      getDateAndTime(tss1->times[t], tss1->timeGranularitySeconds,
+                     tss1->julianBaseDate, cdate, sizeof(cdate), ctime,
+                     sizeof(ctime));
+      if (zisMissingFloat(tss1->floatValues[t])) {
+        fprintf(fp, "%d,%s,%s,\n", t, cdate, ctime);
+
+      } else {
+        fprintf(fp, "%d,%s,%s,%.2f\n", t, cdate, ctime, tss1->floatValues[t]);
       }
-      /* -1 here to change the last '/' (now '_') to '.' */
-      outfilename[ind - 1] = '.';
-      strcat(outfilename, "csv");
-      
-      printf("%5d: %s\n", i + 1, outfilename);
-
-      tss1 = zstructTsNew(catStruct->pathnameList[i]);
-      status = ztsRetrieve(ifltab, tss1, -1, 1, 1);
-      if (status != STATUS_OKAY)
-        return status;
-      FILE *fp = fopen(outfilename, "w");
-      int t;
-
-      fprintf(fp, "index,date,time,value\n");
-      for (t = 0; t < tss1->numberValues; t++) {
-        getDateAndTime(tss1->times[t], tss1->timeGranularitySeconds,
-                       tss1->julianBaseDate, cdate, sizeof(cdate), ctime,
-                       sizeof(ctime));
-        if (zisMissingFloat(tss1->floatValues[t])) {
-          fprintf(fp, "%d,%s,%s,\n", t, cdate, ctime);
-
-        } else {
-          fprintf(fp, "%d,%s,%s,%.2f\n", t, cdate, ctime, tss1->floatValues[t]);
-        }
-      }
-      fclose(fp);
     }
+    fclose(fp);
+  }
   return STATUS_OKAY;
 }
 
-
-int save_grid(long long *ifltab, zStructCatalog *catStruct, int start, int end) {
+int save_grid(long long *ifltab, zStructCatalog *catStruct, int start,
+              int end) {
   zStructSpatialGrid *gridStructRetrieve;
   float *data;
   int idx, i;
   zStructTimeSeries *tss1;
   char outfilename[_MAX_PATH];
+  char outfilename_prj[_MAX_PATH];
   int status = 0;
 
   for (i = start; i < end; i++) {
-      /* +1 here to skip the first '/' */
-      strcpy(outfilename, catStruct->pathnameList[i] + 1);
-      int ind = 0;
-      while (outfilename[ind] != 0) {
-        switch (outfilename[ind]) {
-        case '/':
-          outfilename[ind] = '_';
-        default:
-          break;
-        }
-        ind += 1;
+    dsspath2filename(outfilename, catStruct->pathnameList[i], "asc");
+
+    printf("%5d: %s\n", i + 1, outfilename);
+
+    FILE *fp = fopen(outfilename, "w");
+    int t;
+
+    gridStructRetrieve = zstructSpatialGridNew(catStruct->pathnameList[i]);
+    status = zspatialGridRetrieve(ifltab, gridStructRetrieve, 1);
+
+    if (status != STATUS_OKAY) {
+      printf("Error retrieving grid: %d", status);
+      return status;
+    }
+
+    printGridStruct(ifltab, 0, gridStructRetrieve);
+    data = (float *)gridStructRetrieve->_data;
+    int dataSize = gridStructRetrieve->_numberOfCellsX *
+                   gridStructRetrieve->_numberOfCellsY;
+
+    fprintf(fp, "NCOLS %d\n", gridStructRetrieve->_numberOfCellsX);
+    fprintf(fp, "NROWS %d\n", gridStructRetrieve->_numberOfCellsY);
+    fprintf(fp, "XLLCENTER %d\n", gridStructRetrieve->_lowerLeftCellX);
+    fprintf(fp, "YLLCENTER %d\n", gridStructRetrieve->_lowerLeftCellY);
+    fprintf(fp, "CELLSIZE %f\n", gridStructRetrieve->_cellSize);
+    fprintf(fp, "NODATA_VALUE %f\n", gridStructRetrieve->_nullValue);
+
+    for (idx = 0; idx < dataSize; idx++) {
+      fprintf(fp, "%.2f ", data[idx]);
+      if ((idx + 1) % gridStructRetrieve->_numberOfCellsX == 0) {
+        fprintf(fp, "\n");
       }
-      /* -1 here to change the last '/' (now '_') to '.' */
-      outfilename[ind - 1] = '.';
-      strcat(outfilename, "ascii");
+    }
+    fclose(fp);
 
-      printf("%5d: %s\n", i + 1, outfilename);
+    dsspath2filename(outfilename_prj, catStruct->pathnameList[i], "prj");
+    fp = fopen(outfilename_prj, "w");
+    fprintf(fp, "%s\n", gridStructRetrieve->_srsDefinition);
+    fclose(fp);
 
-      FILE *fp = fopen(outfilename, "w");
-      int t;
-
-      gridStructRetrieve = zstructSpatialGridNew(catStruct->pathnameList[i]);
-      status = zspatialGridRetrieve(ifltab, gridStructRetrieve, 1);
-
-      if (status != STATUS_OKAY) {
-        printf("Error retrieving grid: %d", status);
-        return status;
-      }
-
-      printGridStruct(ifltab, 0, gridStructRetrieve);
-      data = (float *)gridStructRetrieve->_data;
-      int dataSize = gridStructRetrieve->_numberOfCellsX *
-                     gridStructRetrieve->_numberOfCellsY;
-      
-      fprintf(fp, "NCOLS %d\n", gridStructRetrieve->_numberOfCellsX);
-      fprintf(fp, "NROWS %d\n", gridStructRetrieve->_numberOfCellsY);
-      fprintf(fp, "XLLCENTER %d\n", gridStructRetrieve->_lowerLeftCellX);
-      fprintf(fp, "YLLCENTER %d\n", gridStructRetrieve->_lowerLeftCellX);
-      fprintf(fp, "CELLSIZE %f\n", gridStructRetrieve->_cellSize);
-      fprintf(fp, "NODATA_VALUE %f\n", gridStructRetrieve->_nullValue);
-
-      for (idx = 0; idx < dataSize; idx++) {
-        fprintf(fp, "%.2f ", data[idx]);
-        if ((idx + 1) % gridStructRetrieve->_numberOfCellsX == 0) {
-          fprintf(fp, "\n");
-        }
-      }
-      fclose(fp);
-      zstructFree(gridStructRetrieve);
+    zstructFree(gridStructRetrieve);
   }
-  /* data = (float *)gridStructRetrieve->_rangeLimitTable; */
-  /* for (idx = 0; idx < gridStructRetrieve->_numberOfRanges; idx++) { */
-  /* 	if (!isSame(data[idx], idx * 1.1)) */
-  /* 		printf("******** Range is different at: %d : %f ********\n", idx,
-   * data[idx]); */
-  /* 	if (gridStructRetrieve->_numberEqualOrExceedingRangeLimit[idx] != idx *
-   * 2) */
-  /* 		printf("******** Histo is different at: %d : %f ********\n", idx,
-   * data[idx]); */
-  /* } */
   return status;
 }
 
-void print_help(char *name){
-    printf("\nUsage: %s command dss_file.dss [rng]\n", name);
-    printf("\nCommands:\n"
-	   "    help[h]       : print this help menu.\n"
-           "    list[l]       : list the available paths.\n"
-	   "    timeseries[t] : extract the timeseries for paths.\n"
-	   "    grid[g]       : extract the grid for paths.\n"
-	   "Arguments:\n"
-	   "    dss_file.dss  : dss file to operate on.\n"
-	   "    rng           : Range of the chosen timeseries use in format M-N\n"
-	   "                    where M is start and N is the end number (inclusive)\n"
-	   "                    Omitting the start or end will default in available\n"
-	   "                    start or the end. (e.g. 1-5 or -5 or 5-)\n"
-	   "                    [Optional: Defaults to all available]\n");
+void print_help(char *name) {
+  printf("\nUsage: %s command dss_file.dss [rng]\n", name);
+  printf(
+      "\nCommands:\n"
+      "    help[h]       : print this help menu.\n"
+      "    list[l]       : list the available paths.\n"
+      "    timeseries[t] : extract the timeseries for paths.\n"
+      "    grid[g]       : extract the grid for paths.\n"
+      "Arguments:\n"
+      "    dss_file.dss  : dss file to operate on.\n"
+      "    rng           : Range of the chosen timeseries use in format M-N\n"
+      "                    where M is start and N is the end number "
+      "(inclusive)\n"
+      "                    Omitting the start or end will default in "
+      "available\n"
+      "                    start or the end. (e.g. 1-5 or -5 or 5-)\n"
+      "                    [Optional: Defaults to all available]\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -204,7 +200,7 @@ int main(int argc, char *argv[]) {
   long lbyte;
 
   if (argc < 3) {
-    if (argv[1][0] != 'h'){
+    if (argv[1][0] != 'h') {
       printf("Not enough arguments.\n\n");
     }
     print_help(argv[0]);
@@ -232,7 +228,7 @@ int main(int argc, char *argv[]) {
   int start = 0;
   int end = catStruct->numberPathnames;
   if (argc == 4) {
-      read_range(argv[3], &start, &end);
+    read_range(argv[3], &start, &end);
   } else {
     end = catStruct->numberPathnames;
   }
@@ -246,14 +242,14 @@ int main(int argc, char *argv[]) {
     break;
   case 'g':
     status = save_grid(ifltab, catStruct, start, end);
-    if (status != STATUS_OKAY){
+    if (status != STATUS_OKAY) {
       printf("Error [code: %d]\n", status);
       return status;
     }
     break;
   case 't':
     status = save_paths(ifltab, catStruct, start, end);
-    if (status != STATUS_OKAY){
+    if (status != STATUS_OKAY) {
       printf("Error [code: %d]\n", status);
       return status;
     }
