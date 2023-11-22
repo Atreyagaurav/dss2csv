@@ -48,10 +48,10 @@ void read_range(char *rng, int *start, int *end) {
   }
 }
 
-void list_paths(zStructCatalog *catStruct, int start, int end) {
+void list_paths(zStructCatalog *catalogue, int start, int end) {
   int i;
   for (i = start; i < end; i++) {
-    printf("%5d: %s\n", i + 1, catStruct->pathnameList[i]);
+    printf("%5d: %s\n", i + 1, catalogue->pathnameList[i]);
   }
 }
 
@@ -73,7 +73,7 @@ void dsspath2filename(char *outfilename, char *path, char *ext) {
   strcat(outfilename, ext);
 }
 
-int save_paths(long long *ifltab, zStructCatalog *catStruct, int start,
+int extract_timeseries(long long *ifltab, zStructCatalog *catalogue, int start,
                int end) {
   int i;
   zStructTimeSeries *tss1;
@@ -82,10 +82,10 @@ int save_paths(long long *ifltab, zStructCatalog *catStruct, int start,
   int status;
 
   for (i = start; i < end; i++) {
-    dsspath2filename(outfilename, catStruct->pathnameList[i], "csv");
+    dsspath2filename(outfilename, catalogue->pathnameList[i], "csv");
     printf("%5d: %s\n", i + 1, outfilename);
 
-    tss1 = zstructTsNew(catStruct->pathnameList[i]);
+    tss1 = zstructTsNew(catalogue->pathnameList[i]);
     status = ztsRetrieve(ifltab, tss1, -1, 1, 1);
     if (status != STATUS_OKAY)
       return status;
@@ -109,47 +109,45 @@ int save_paths(long long *ifltab, zStructCatalog *catStruct, int start,
   return STATUS_OKAY;
 }
 
-int save_grid(long long *ifltab, zStructCatalog *catStruct, int start,
+int extract_grid(long long *ifltab, zStructCatalog *catalogue, int start,
               int end) {
-  zStructSpatialGrid *gridStructRetrieve;
+  zStructSpatialGrid *grid;
   float *data;
   int idx, i;
-  zStructTimeSeries *tss1;
   char outfilename[_MAX_PATH];
   char outfilename_prj[_MAX_PATH];
   int status = 0;
 
   for (i = start; i < end; i++) {
-    dsspath2filename(outfilename, catStruct->pathnameList[i], "asc");
+    dsspath2filename(outfilename, catalogue->pathnameList[i], "asc");
 
     printf("%5d: %s\n", i + 1, outfilename);
 
     FILE *fp = fopen(outfilename, "w");
     int t;
 
-    gridStructRetrieve = zstructSpatialGridNew(catStruct->pathnameList[i]);
-    status = zspatialGridRetrieve(ifltab, gridStructRetrieve, 1);
+    grid = zstructSpatialGridNew(catalogue->pathnameList[i]);
+    status = zspatialGridRetrieve(ifltab, grid, 1);
 
     if (status != STATUS_OKAY) {
       printf("Error retrieving grid: %d", status);
       return status;
     }
-
-    printGridStruct(ifltab, 0, gridStructRetrieve);
-    data = (float *)gridStructRetrieve->_data;
-    fprintf(fp, "NCOLS %d\n", gridStructRetrieve->_numberOfCellsX);
-    fprintf(fp, "NROWS %d\n", gridStructRetrieve->_numberOfCellsY);
-    fprintf(fp, "XLLCENTER %f\n",
-	    gridStructRetrieve->_lowerLeftCellX * gridStructRetrieve->_cellSize);
-    fprintf(fp, "YLLCENTER %f\n",
-	    gridStructRetrieve->_lowerLeftCellY * gridStructRetrieve->_cellSize);
-    fprintf(fp, "CELLSIZE %f\n", gridStructRetrieve->_cellSize);
-    fprintf(fp, "NODATA_VALUE %f\n", gridStructRetrieve->_nullValue);
+    
+    data = (float *)grid->_data;
+    fprintf(fp, "ncols %d\n", grid->_numberOfCellsX);
+    fprintf(fp, "nrows %d\n", grid->_numberOfCellsY);
+    fprintf(fp, "xllcorner %f\n",
+	    grid->_lowerLeftCellX * grid->_cellSize);
+    fprintf(fp, "yllcorner %f\n",
+	    grid->_lowerLeftCellY * grid->_cellSize);
+    fprintf(fp, "cellsize %f\n", grid->_cellSize);
+    fprintf(fp, "NODATA_value %f\n", grid->_nullValue);
     int x, y;
-    for (y = 0; y < gridStructRetrieve->_numberOfCellsY; y++) {
-      for (x = 0; x < gridStructRetrieve->_numberOfCellsX; x++) {
-        idx = (gridStructRetrieve->_numberOfCellsY - y) * gridStructRetrieve->_numberOfCellsX + x;
-        fprintf(fp, "%.2f ", data[idx]);
+    for (y = 0; y < grid->_numberOfCellsY; y++) {
+      for (x = 0; x < grid->_numberOfCellsX; x++) {
+        idx = (grid->_numberOfCellsY - y) * grid->_numberOfCellsX + x;
+        fprintf(fp, "%f ", data[idx]);
       }
       fprintf(fp, "\n");
     }
@@ -157,14 +155,14 @@ int save_grid(long long *ifltab, zStructCatalog *catStruct, int start,
 
     /* Warning: The given WKT format when inserted to prj file doesn't
        always work */
-    if (strcmp(gridStructRetrieve->_srsName, "WKT")) {
-      dsspath2filename(outfilename_prj, catStruct->pathnameList[i], "prj");
+    if (strcmp(grid->_srsName, "WKT") == 0) {
+      dsspath2filename(outfilename_prj, catalogue->pathnameList[i], "prj");
       fp = fopen(outfilename_prj, "w");
-      fprintf(fp, "%s\n", gridStructRetrieve->_srsDefinition);
+      fprintf(fp, "%s\n", grid->_srsDefinition);
       fclose(fp);
     }
 
-    zstructFree(gridStructRetrieve);
+    zstructFree(grid);
   }
   return status;
 }
@@ -193,7 +191,7 @@ int main(int argc, char *argv[]) {
   char filename[_MAX_PATH];
   char pathname[393];
   char *tempname;
-  zStructCatalog *catStruct;
+  zStructCatalog *catalogue;
   int exists;
   int idummy;
   int loop;
@@ -222,19 +220,19 @@ int main(int argc, char *argv[]) {
   if (status != STATUS_OKAY)
     return status;
 
-  catStruct = zstructCatalogNew();
-  numberPaths = zcatalog(ifltab, "", catStruct, 1);
+  catalogue = zstructCatalogNew();
+  numberPaths = zcatalog(ifltab, "", catalogue, 1);
   if (numberPaths < 0)
     return numberPaths;
-  printf("%d total pathnames found\n", catStruct->numberPathnames);
+  printf("%d total pathnames found\n", catalogue->numberPathnames);
 
   int list = 0;
   int start = 0;
-  int end = catStruct->numberPathnames;
+  int end = catalogue->numberPathnames;
   if (argc == 4) {
     read_range(argv[3], &start, &end);
   } else {
-    end = catStruct->numberPathnames;
+    end = catalogue->numberPathnames;
   }
 
   switch (argv[1][0]) {
@@ -242,17 +240,17 @@ int main(int argc, char *argv[]) {
     print_help(argv[0]);
     return 0;
   case 'l':
-    list_paths(catStruct, start, end);
+    list_paths(catalogue, start, end);
     break;
   case 'g':
-    status = save_grid(ifltab, catStruct, start, end);
+    status = extract_grid(ifltab, catalogue, start, end);
     if (status != STATUS_OKAY) {
       printf("Error [code: %d]\n", status);
       return status;
     }
     break;
   case 't':
-    status = save_paths(ifltab, catStruct, start, end);
+    status = extract_timeseries(ifltab, catalogue, start, end);
     if (status != STATUS_OKAY) {
       printf("Error [code: %d]\n", status);
       return status;
@@ -263,7 +261,7 @@ int main(int argc, char *argv[]) {
     print_help(argv[0]);
     return 1;
   }
-  zstructFree(catStruct);
+  zstructFree(catalogue);
   zclose(ifltab);
   return 0;
 }

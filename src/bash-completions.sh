@@ -16,3 +16,4 @@ _dss2csv() {
 }
 
 complete -F _dss2csv -o bashdefault -o dirnames dss2csv
+complete -F _dss2csv -o bashdefault -o dirnames csv2dss
