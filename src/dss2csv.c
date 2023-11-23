@@ -182,6 +182,8 @@ void print_help(char *name) {
       "    list[l]       : list the available paths.\n"
       "    timeseries[t] : extract the timeseries for paths.\n"
       "    grid[g]       : extract the grid for paths.\n"
+      "\n"
+      "    using grid command on timeseries file or vice versa will fail.\n"
       "Arguments:\n"
       "    dss_file.dss  : dss file to operate on.\n"
       "    rng           : Range of the chosen timeseries use in format M-N\n"

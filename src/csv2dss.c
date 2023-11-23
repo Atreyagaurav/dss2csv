@@ -207,10 +207,13 @@ void print_help(char *name) {
       "    help[h]       : print this help menu.\n"
       "    timeseries[t] : extract the timeseries for paths.\n"
       "    grid[g]       : extract the grid for paths.\n"
+      "\n"
+      "    using grid command on timeseries file or vice versa will fail.\n"
       "Arguments:\n"
       "    dss_file.dss  : dss file to operate on.\n"
       "    input_files...: Input files to convert to dss format\n"
-      "                  : filename should have fields A-F separated by _\n");
+      "                  : filename should have fields A-F separated by _\n"
+      "                    e.g. A_B_C_D_E_F.csv will become /A/B/C/D/E/F/\n");
 }
 
 int main(int argc, char *argv[]) {

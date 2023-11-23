@@ -1,26 +1,42 @@
 * Introduction
-Linux CLI Utility to convert .dss file formats into .csv format.
+Linux CLI Utility to convert .dss file formats into .csv/.asc format and back.
 
-Extracts all the timeseries in a dss file into CSV files, and all grids into ASCII grid files (can be read with GIS softwares) in the current directory.
+
+- Filenames for input/output =.csv/.asc= files will/should be PATH in
+  the DSS but separated by =_= instead of =/=.
+  e.g. =A_B_C_D_E_F.csv= will become =/A/B/C/D/E/F/= and vice versa.
+- CSV files are simple comma delimited text files.
+- ASCII grid files are [[https://desktop.arcgis.com/en/arcmap/latest/manage-data/raster-and-images/esri-ascii-raster-format.htm][Esri ASCII raster format]], and can be read with GIS softwares.
+
+
+It has 2 tools:
+** dss2csv
+- Converts dss timeseries into CSV files
+- Converts dss grid into ASCII files
+** csv2dss
+- (TODO) Converts CSV files into dss timeseries
+- Converts ASCII files into dss grid
+
+* Development Notes
 
 It's really hacky, and only does basic things, but since DSS files are binary files that we have no other way to read except for HEC built softwares like HEC-DSSVue, and the export from HEC-DSSVue doesn't even have CSV format, and except export fails if tried on too many series at once. I have been trying to make it for more than a year, and have finally succeeded in a prototype.
 
 I made it as all libraries I can find depends on the C library heclib, and don't compile at all in linux machine I have. And all libraries seem to only include the compiled binaries from the C library that are either not compatible, or have some problems in them. Even replacing the c files from the file downloaded from [[https://www.hec.usace.army.mil/confluence/dssdocs/dsscprogrammer/release-notes][HEC-DSS Programmers Guide for C]] didn't help.
 
-And while trying everything I found https://github.com/HydrologicEngineeringCenter/hec-dss/, trying to use the =heclib.a= compiled form that also didn't work. But the =libheclib.so= worked. So I've made this library, that can be compiled with the sharedlibrary and will need the shared libraries to run.
+And while trying everything I found https://github.com/HydrologicEngineeringCenter/hec-dss/, trying to use the =heclib.a= compiled form that also didn't work. But the =libheclib.so= worked, but some functions were not available in the =.so=. Turns out there is a separate file to generate =.so= that looked like it was made for java applications they have (like HEC-DSSVue) in mind, so I remade a shared library from the actual function definitions in all the source files. So I've made this library, that can be compiled with the sharedlibrary and will need the shared libraries to run.
 
 I've included a =PKGBUILD= file to install it in archlinux (just do =makepkg -si= to install), it'll compile and copy the binary, shared library and the bash completion script to corresponding directories. There is also =Makefile= if you want to compile it and install/run it some other way. You only need =gcc= (c compiler).
 
 You can also compile your own shared libraries from =hec-dss= linked above and use that if the current one doesn't work. It might work with windows/mac as well that way but I haven't tested it.
 
 * Install
-use the =make= command to compile the c code using the =Makefile=. It'll generate =dss2csv= binary in =src/=.
+use the =make= command to compile the c code using the =Makefile=. It'll generate =dss2csv= and =csv2dss= binaries in =src/=.
 
-Or for Arch Linux, use =makepkg -si= command to build and install the binary, shared library and bash completion.
+Or for Arch Linux, use =makepkg -si= command to build and install the binaries, shared library and bash completion.
 
 * Usage
-Help menu:
 
+Help menu dss2csv:
 #+begin_example
 Usage: dss2csv command dss_file.dss [rng]
 
@@ -29,6 +45,8 @@ Commands:
     list[l]       : list the available paths.
     timeseries[t] : extract the timeseries for paths.
     grid[g]       : extract the grid for paths.
+
+    using grid command on timeseries file or vice versa will fail.
 Arguments:
     dss_file.dss  : dss file to operate on.
     rng           : Range of the chosen timeseries use in format M-N
@@ -38,11 +56,36 @@ Arguments:
                     [Optional: Defaults to all available]
 #+end_example
 
+Help menu csv2dss:
+#+begin_example
+Usage: csv2dss command dss_file.dss input_files...
+
+Commands:
+    help[h]       : print this help menu.
+    timeseries[t] : extract the timeseries for paths.
+    grid[g]       : extract the grid for paths.
+
+    using grid command on timeseries file or vice versa will fail.
+Arguments:
+    dss_file.dss  : dss file to operate on.
+    input_files...: Input files to convert to dss format
+                  : filename should have fields A-F separated by _
+                    e.g. A_B_C_D_E_F.csv will become /A/B/C/D/E/F/
+#+end_example
+
 Only the first character of the commands are actually checked, so you only need it. Long name are useful for readability only.
 
 Use =timeseries[t]= command for timeseries file and =grid[g]= for grid file, using the incompatible command will just make it exit without doing anything. the functions return error code, but I couldn't figure out how to print what error codes mean, instead of just knowing it's success or failure. I don't want to use the enums to compare all different errors and print them myself.
 
-I've tried to turn off all the log prints from the libraries with =zsetMessageLevel(0, 0);= but it doesn't work on the grid option. Couldn't find anything useful on the header files, so if you know let me know.
+I've tried to turn off all the log prints from the libraries with =zsetMessageLevel(0, 0);=. So if you want more error messages being printed, you can change that and recompile. If I can figure out how to save those logs into a log file I'll do that, feel free to make any pull requests.
 
 * Bugs
-The ascii file generated is really simple file as I just wrote the read data into ascii format, but the plot from ascii file and DSSVue seems to be inverted, so I need to check that to make sure. I also have it ignore projection and all other details for the grid for now.
+I also have it ignore projection (just assumes it's [[https://www.hec.usace.army.mil/confluence/dssdocs/dssjavaprogrammer/appendix-c-grid-classes-in-hec-java-programs/geo-referencing-hec-grids][SHG grid systems]], I should add options on that). Writing reprojections is something I don't want to do, so convert it using the definition in GIS software. Make sure the ASCII file is valid and is in the correct location in a GIS software.
+
+The =WKT= definition of the projection used in DSS format is:
+
+#+begin_example
+PROJCS["USA_Contiguous_Albers_Equal_Area_Conic_USGS_version",GEOGCS["GCS_North_American_1983",DATUM["D_North_American_1983",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Albers"],PARAMETER["False_Easting",0.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-96.0],PARAMETER["Standard_Parallel_1",29.5],PARAMETER["Standard_Parallel_2",45.5],PARAMETER["Latitude_Of_Origin",23.0],UNIT["Meter",1.0]]
+#+end_example
+
+It also ignores all other details for the grid in DSS for now. And while writing the grid, it only calculates the minimum, mean and maximum. Range table and other Attributes are just garbage values, (it crashes if I don't put something there).

@@ -1,6 +1,6 @@
 # Maintainer: Gaurav Atreya <allmanpride@gmail.com>
 pkgname=dss2csv
-pkgver=0.5
+pkgver=0.6
 pkgrel=1
 pkgdesc="Extract CSVs from a HEC-DSS file"
 arch=('x86_64')
