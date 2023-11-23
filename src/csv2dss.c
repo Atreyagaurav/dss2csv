@@ -115,33 +115,23 @@ int save_grid(long long *ifltab, char ** input_files, int num_files) {
     grid->_dataUnits = mallocAndCopy("mm");
 
     /* temp */
+    /* TODO: should I calculate it? */
     int range = 5;
-	static float *rangelimit;
-	static int *histo;
+    static float *rangelimit;
+    static int *histo;
 
-	rangelimit = calloc(range, sizeof(float));
-	histo = calloc(range, sizeof(float));
+    rangelimit = calloc(range, sizeof(float));
+    histo = calloc(range, sizeof(float));
 
-	for (idx = 0; idx < range; idx++) {
-		rangelimit[idx] = idx * 1.1;
-		histo[idx] = idx * 2;
-	}
-	grid->_rangeLimitTable = &(rangelimit[0]);
-	grid->_numberEqualOrExceedingRangeLimit = &(histo[0]);
-	grid->_numberOfRanges = range;
-	grid->_timeZoneID = mallocAndCopy("PST");
-	grid->_compressionMethod = NO_COMPRESSION;
-
-	/* TODO: should I calculate it? */
-	float* max = malloc(sizeof(float));
-	*max = 1.0;
-	float* min = malloc(sizeof(float));
-	 *min = 0.001;
-	 float* mean = malloc(sizeof(float));
-	 *mean = 0.2;
-	grid->_maxDataValue =  max;
-	grid->_minDataValue = min;
-	grid->_meanDataValue = mean;
+    for (idx = 0; idx < range; idx++) {
+      rangelimit[idx] = idx * 1.1;
+      histo[idx] = idx * 2;
+    }
+    grid->_rangeLimitTable = &(rangelimit[0]);
+    grid->_numberEqualOrExceedingRangeLimit = &(histo[0]);
+    grid->_numberOfRanges = range;
+    grid->_timeZoneID = mallocAndCopy("PST");
+    grid->_compressionMethod = NO_COMPRESSION;
 
     fscanf(fp, "ncols %d\n", &grid->_numberOfCellsX);
     fscanf(fp, "nrows %d\n", &grid->_numberOfCellsY);
@@ -153,16 +143,37 @@ int save_grid(long long *ifltab, char ** input_files, int num_files) {
     fscanf(fp, "NODATA_value %f\n", &grid->_nullValue);
     
     int x, y;
+
+    /* these values coz I'm using them for precipitation weights */
+    float min=100000000.0, max=-10000000.0, sum=0.0;
+    int count=0;
+    float *dat;
     data = (float*)calloc(grid->_numberOfCellsX * grid->_numberOfCellsY,
 			  sizeof(float));
     for (y = 0; y < grid->_numberOfCellsY; y++) {
       for (x = 0; x < grid->_numberOfCellsX; x++) {
-        idx = (grid->_numberOfCellsY - y - 1) * grid->_numberOfCellsX + x;
-        fscanf(fp, "%f", data + idx);
+        dat = data + (grid->_numberOfCellsY - y - 1) * grid->_numberOfCellsX + x;
+        fscanf(fp, "%f", dat);
+	if (*dat != grid->_nullValue){
+	  if (*dat > max) max = *dat;
+	  if (*dat < min) min = *dat;
+	  count += 1;
+	  sum += *dat;
+	}
       }
     }
     fclose(fp);
     grid->_data = data;
+
+    float *maxp = malloc(sizeof(float));
+    *maxp = max;
+    float *minp = malloc(sizeof(float));
+    *minp = min;
+    float *mean = malloc(sizeof(float));
+    *mean = sum / count;
+    grid->_maxDataValue = maxp;
+    grid->_minDataValue = minp;
+    grid->_meanDataValue = mean;
 
     grid->_srsDefinitionType = 1;
     grid->_srsName = mallocAndCopy("WKT");
