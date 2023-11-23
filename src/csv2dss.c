@@ -130,7 +130,7 @@ int save_grid(long long *ifltab, char ** input_files, int num_files) {
 	grid->_numberEqualOrExceedingRangeLimit = &(histo[0]);
 	grid->_numberOfRanges = range;
 	grid->_timeZoneID = mallocAndCopy("PST");
-	grid->_compressionMethod = ZLIB_COMPRESSION;
+	grid->_compressionMethod = NO_COMPRESSION;
 
 	/* TODO: should I calculate it? */
 	float* max = malloc(sizeof(float));
@@ -138,7 +138,7 @@ int save_grid(long long *ifltab, char ** input_files, int num_files) {
 	float* min = malloc(sizeof(float));
 	 *min = 0.001;
 	 float* mean = malloc(sizeof(float));
-	 *mean = 1.2;
+	 *mean = 0.2;
 	grid->_maxDataValue =  max;
 	grid->_minDataValue = min;
 	grid->_meanDataValue = mean;
@@ -158,8 +158,7 @@ int save_grid(long long *ifltab, char ** input_files, int num_files) {
     for (y = 0; y < grid->_numberOfCellsY; y++) {
       for (x = 0; x < grid->_numberOfCellsX; x++) {
         idx = (grid->_numberOfCellsY - y - 1) * grid->_numberOfCellsX + x;
-	*(data + idx) = 0.0;
-        fscanf(fp, "%f ", data + idx);
+        fscanf(fp, "%f", data + idx);
       }
     }
     fclose(fp);

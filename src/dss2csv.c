@@ -148,6 +148,13 @@ int extract_grid(long long *ifltab, zStructCatalog *catalogue, int start,
       for (x = 0; x < grid->_numberOfCellsX; x++) {
         idx = (grid->_numberOfCellsY - y) * grid->_numberOfCellsX + x;
         fprintf(fp, "%f ", data[idx]);
+	/* TODO: the dss made from csv2dss tool have weird numbers
+	   printing here, although I can't see those in original asc
+	   or HEC-DSSVue */
+	
+	/* if (*(data + idx) > 1.0 || *(data + idx) < 0.0){ */
+	/*   printf("%f ", *(data + idx)); */
+	/* } */
       }
       fprintf(fp, "\n");
     }
@@ -202,7 +209,7 @@ int main(int argc, char *argv[]) {
   long lbyte;
 
   if (argc < 3) {
-    if (argv[1][0] != 'h') {
+    if (argc < 2 || argv[1][0] != 'h') {
       printf("Not enough arguments.\n\n");
     }
     print_help(argv[0]);
@@ -263,45 +270,5 @@ int main(int argc, char *argv[]) {
   }
   zstructFree(catalogue);
   zclose(ifltab);
-  return 0;
-}
-
-/* IDK why it was not loaded into the .so file or .a file, so copying it here.
- */
-int getDateAndTime(int time, int timeGranularitySeconds, int julianBaseDate,
-                   char *dateString, int sizeOfDateString, char *hoursMins,
-                   int sizeofHoursMins) {
-  int numberInDay;
-  int days;
-  int timeOfDay;
-  int julian;
-  long long granularity;
-
-  //  Convert minutes or seconds to days and seconds
-  granularity = (long long)timeGranularitySeconds;
-  if (granularity < 1)
-    granularity = MINUTE_GRANULARITY;
-  numberInDay = (int)(SECS_IN_1_DAY / granularity);
-  days = time / numberInDay;
-  julian = julianBaseDate + days;
-
-  //  Now start day and seconds
-  timeOfDay = time - (days * numberInDay);
-  if (timeOfDay < 1) {
-    julian--;
-    timeOfDay += numberInDay;
-  }
-
-  if (timeGranularitySeconds == SECOND_GRANULARITY) {
-    secondsToTimeString(timeOfDay, 0, 2, hoursMins, sizeofHoursMins);
-  } else if (timeGranularitySeconds == MINUTE_GRANULARITY) {
-    minutesToHourMin(timeOfDay, hoursMins, sizeofHoursMins);
-  } else {
-    //  Get minutes
-    timeOfDay *= (timeGranularitySeconds / SECS_IN_1_MINUTE);
-    minutesToHourMin(timeOfDay, hoursMins, sizeofHoursMins);
-  }
-  julianToDate(julian, -13, dateString, sizeOfDateString);
-
   return 0;
 }
