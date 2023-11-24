@@ -86,22 +86,21 @@ int extract_timeseries(long long *ifltab, zStructCatalog *catalogue, int start,
     printf("%5d: %s\n", i + 1, outfilename);
 
     tss1 = zstructTsNew(catalogue->pathnameList[i]);
-    status = ztsRetrieve(ifltab, tss1, -1, 1, 1);
+    status = ztsRetrieve(ifltab, tss1, 0, 1, 0);
     if (status != STATUS_OKAY)
       return status;
     FILE *fp = fopen(outfilename, "w");
     int t;
 
-    fprintf(fp, "index,date,time,value\n");
+    fprintf(fp, "date,value\n");
     for (t = 0; t < tss1->numberValues; t++) {
       getDateAndTime(tss1->times[t], tss1->timeGranularitySeconds,
                      tss1->julianBaseDate, cdate, sizeof(cdate), ctime,
                      sizeof(ctime));
       if (zisMissingFloat(tss1->floatValues[t])) {
-        fprintf(fp, "%d,%s,%s,\n", t, cdate, ctime);
-
+        fprintf(fp, "%s,\n", cdate);
       } else {
-        fprintf(fp, "%d,%s,%s,%.2f\n", t, cdate, ctime, tss1->floatValues[t]);
+        fprintf(fp, "%s,%.2f\n", cdate, tss1->floatValues[t]);
       }
     }
     fclose(fp);
