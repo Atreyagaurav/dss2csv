@@ -14,7 +14,7 @@ It has 2 tools:
 - Converts dss timeseries into CSV files
 - Converts dss grid into ASCII files
 ** csv2dss
-- (TODO) Converts CSV files into dss timeseries
+- Converts CSV files into dss timeseries
 - Converts ASCII files into dss grid
 
 * Development Notes
@@ -79,7 +79,11 @@ Use =timeseries[t]= command for timeseries file and =grid[g]= for grid file, usi
 
 I've tried to turn off all the log prints from the libraries with =zsetMessageLevel(0, 0);=. So if you want more error messages being printed, you can change that and recompile. If I can figure out how to save those logs into a log file I'll do that, feel free to make any pull requests.
 
-* Bugs
+* Bugs and Pecularities
+** Timeseries CSV to DSS
+The field E should be valid time frequency for the CSV to be compiled into a DSS file. The error message is not useful so keep it in mind. So far I've only tried 1Day that works.
+
+** DSS Grid to CSV
 I also have it ignore projection (just assumes it's [[https://www.hec.usace.army.mil/confluence/dssdocs/dssjavaprogrammer/appendix-c-grid-classes-in-hec-java-programs/geo-referencing-hec-grids][SHG grid systems]], I should add options on that). Writing reprojections is something I don't want to do, so convert it using the definition in GIS software. Make sure the ASCII file is valid and is in the correct location in a GIS software.
 
 The =WKT= definition of the projection used in DSS format is:

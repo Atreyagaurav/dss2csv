@@ -1,11 +1,13 @@
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 
 #include "hecdss/hecdss7.h"
 #include "hecdss/hecdssInternal.h"
 #include "hecdss/heclib.h"
+#include "hecdss/heclibDate.h"
 #include "hecdss/zStructAllocation.h"
 #include "hecdss/zStructCatalog.h"
 #include "hecdss/zStructSpatialGrid.h"
@@ -13,7 +15,7 @@
 #include "hecdss/zdssMessages.h"
 
 void filename2dsspath(char *infilename, char *path) {
-  int offset = 0;
+  int offset = -1;
   int ind = 0;
   /* To ignore the pathnames till the filename */
   while (infilename[ind] != 0){
@@ -51,41 +53,85 @@ void with_extension(char *infilename, char *outfilename, char * ext) {
   strcpy(outfilename + offset + 1, ext);
 }
 
-int save_timeseries(long long *ifltab, zStructCatalog *catStruct, int start,
-               int end) {
-  /* TODO */
+int read_csv(char *filename, int **time, float **values, char *start_day, int *num_records) {
+  char *lineptr = NULL;
+  size_t len;
+  size_t read;
+  FILE * fp = fopen(filename, "r");
+
+  /* Count the number of lines for malloc */
+  int num_lines = 0;
+  char c;
+  while ((c=getc(fp)) != EOF){
+    if (c == '\n') num_lines++;
+  }
+
+  *time = malloc(sizeof(int) * (num_lines));
+  *values = malloc(sizeof(float) * (num_lines));
+  if (*time == NULL || *values == NULL){
+    printf("Can't malloc.\n");
+    exit(1);
+  }
+  *num_records = num_lines;
+  /* Detect the first date, in string and julian */
+  rewind(fp);
+  read = getdelim(&lineptr, &len, ',', fp);
+  *(lineptr + read - 1) = 0;
+  strcpy(start_day, lineptr);
+  int start_day_jul = dateToJulian(lineptr);
+  /* free(lineptr); */
   
-  /* int i; */
-  /* zStructTimeSeries *tss1; */
-  /* char cdate[13], ctime[10]; */
-  /* char outfilename[_MAX_PATH]; */
-  /* int status; */
+  /* Now the values */
+  rewind(fp);
+  int i;
+  for (i=0; i < num_lines; i++) {
+    read = getdelim(&lineptr, &len, ',', fp);
+    *(lineptr + read - 1) = 0;
+    *(*time + i) = (dateToJulian(lineptr) - start_day_jul) * 24 * 60;
+    /* free(lineptr); */
+    read = getdelim(&lineptr, &len, '\n', fp);
+    if (read > 1) {
+      *(lineptr + read - 1) = 0;
+      *(*values + i) = atof(lineptr);
+    } else {
+      /* empty (only '\n') means no data, but NAN from math.h doesn't seem compatible with DSS*/
+      /* *(*values + i) = NAN; */
+      zsetMissingFloat(*values + i);
+    }
+    /* free(lineptr); */
+  }
+  return 1;
+}
 
-  /* for (i = start; i < end; i++) { */
-  /*   dsspath2filename(outfilename, catStruct->pathnameList[i], "csv"); */
-  /*   printf("%5d: %s\n", i + 1, outfilename); */
+int save_timeseries(long long *ifltab, char ** input_files, int num_files) {
+  /* TODO */
+  zStructTimeSeries *tss1;
+  char start_day[100];
+  int num_records;
+  float *fvalues;
+  int *itimes;
+  int status;
+  int idx, i;
+  char *infilename;
+  char path[_MAX_PATH];
 
-  /*   tss1 = zstructTsNew(catStruct->pathnameList[i]); */
-  /*   status = ztsRetrieve(ifltab, tss1, -1, 1, 1); */
-  /*   if (status != STATUS_OKAY) */
-  /*     return status; */
-  /*   FILE *fp = fopen(outfilename, "w"); */
-  /*   int t; */
+  for (i = 0; i < num_files; i++) {
+    infilename = *(input_files + i);
+    filename2dsspath(infilename, path);
 
-  /*   fprintf(fp, "index,date,time,value\n"); */
-  /*   for (t = 0; t < tss1->numberValues; t++) { */
-  /*     getDateAndTime(tss1->times[t], tss1->timeGranularitySeconds, */
-  /*                    tss1->julianBaseDate, cdate, sizeof(cdate), ctime, */
-  /*                    sizeof(ctime)); */
-  /*     if (zisMissingFloat(tss1->floatValues[t])) { */
-  /*       fprintf(fp, "%d,%s,%s,\n", t, cdate, ctime); */
-
-  /*     } else { */
-  /*       fprintf(fp, "%d,%s,%s,%.2f\n", t, cdate, ctime, tss1->floatValues[t]); */
-  /*     } */
-  /*   } */
-  /*   fclose(fp); */
-  /* } */
+    read_csv(infilename, &itimes, &fvalues, start_day, &num_records);
+    printf("%5d: %s\n", i + 1, path);
+    /* this fails if the path is just "/A/B/C/D/E/F/" but E as 1Day works, weird */
+    tss1 = zstructTsNewIrregFloats(path, fvalues, num_records, itimes, MINUTE_GRANULARITY, start_day, "cfs", "Inst-Val");
+    status = ztsStore(ifltab, tss1, 1);
+    if (status != STATUS_OKAY){
+      printf("Err Timeseries Store: %d\n", status);
+      return status;
+    }
+    free(fvalues);
+    free(itimes);
+    zstructFree(tss1);
+  }
   return STATUS_OKAY;
 }
 
@@ -256,13 +302,13 @@ int main(int argc, char *argv[]) {
       return status;
     }
     break;
-  /* case 't': */
-  /*   status = save_timeseries(ifltab, catStruct); */
-  /*   if (status != STATUS_OKAY) { */
-  /*     printf("Error [code: %d]\n", status); */
-  /*     return status; */
-  /*   } */
-  /*   break; */
+  case 't':
+    status = save_timeseries(ifltab, argv + 3, argc - 3);
+    if (status != STATUS_OKAY) {
+      printf("Error [code: %d]\n", status);
+      return status;
+    }
+    break;
   default:
     printf("Unknown Command.\n\n");
     print_help(argv[0]);
