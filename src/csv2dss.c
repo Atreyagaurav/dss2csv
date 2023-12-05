@@ -190,6 +190,7 @@ int save_grid(long long *ifltab, char ** input_files, int num_files) {
   char *infilename;
   char path[_MAX_PATH];
   char infilename_prj[_MAX_PATH];
+  char infilename_info[_MAX_PATH];
   int status = 0;
   for (i = 0; i < num_files; i++) {
     infilename = *(input_files + i);
@@ -201,30 +202,6 @@ int save_grid(long long *ifltab, char ** input_files, int num_files) {
     int t;
 
     grid = zstructSpatialGridNew(path);
-    
-    grid->_type = 420;
-    grid->_dataSource = mallocAndCopy("INTERNAL");
-    grid->_version = 1;
-    grid->_dataUnits = mallocAndCopy("mm");
-
-    /* temp */
-    /* TODO: should I calculate it? */
-    int range = 5;
-    static float *rangelimit;
-    static int *histo;
-
-    rangelimit = calloc(range, sizeof(float));
-    histo = calloc(range, sizeof(float));
-
-    for (idx = 0; idx < range; idx++) {
-      rangelimit[idx] = idx * 1.1;
-      histo[idx] = idx * 2;
-    }
-    grid->_rangeLimitTable = &(rangelimit[0]);
-    grid->_numberEqualOrExceedingRangeLimit = &(histo[0]);
-    grid->_numberOfRanges = range;
-    grid->_timeZoneID = mallocAndCopy("PST");
-    grid->_compressionMethod = NO_COMPRESSION;
 
     fscanf(fp, "ncols %d\n", &grid->_numberOfCellsX);
     fscanf(fp, "nrows %d\n", &grid->_numberOfCellsY);
@@ -257,7 +234,23 @@ int save_grid(long long *ifltab, char ** input_files, int num_files) {
     }
     fclose(fp);
     grid->_data = data;
+    /* temp */
+    /* TODO: should I calculate it? */
+    int range = 2;
+    static float *rangelimit;
+    static int *histo;
 
+    rangelimit = calloc(range, sizeof(float));
+    histo = calloc(range, sizeof(float));
+
+    zsetMissingFloat(rangelimit);
+    histo[0] = grid->_numberOfCellsX * grid->_numberOfCellsY;
+    rangelimit[1] = min;
+    histo[1] = count;
+    grid->_rangeLimitTable = rangelimit;
+    grid->_numberEqualOrExceedingRangeLimit = histo;
+    grid->_numberOfRanges = range;
+    
     float *maxp = malloc(sizeof(float));
     *maxp = max;
     float *minp = malloc(sizeof(float));
@@ -268,6 +261,37 @@ int save_grid(long long *ifltab, char ** input_files, int num_files) {
     grid->_minDataValue = minp;
     grid->_meanDataValue = mean;
 
+    with_extension(infilename, infilename_info, "dssinfo");
+    fp = fopen(infilename_info, "r");
+    if (fp != NULL) {
+      char ignore[1024];
+      fscanf(fp, "pathname:%s\n", ignore);
+      fscanf(fp, "structVersion:%d\n", &grid->_structVersion);
+      fscanf(fp, "type:%d\n", &grid->_type);
+      fscanf(fp, "version:%d\n", &grid->_version);
+      fscanf(fp, "dataUnits:%s\n", grid->_dataUnits);
+      fscanf(fp, "dataType:%d\n", &grid->_dataType);
+      fscanf(fp, "dataSource:%s\n", grid->_dataSource);
+      fscanf(fp, "compressionMethod:%d\n", &grid->_compressionMethod);
+      fscanf(fp, "timeZoneID:%s\n", grid->_timeZoneID);
+      fscanf(fp, "timeZoneRawOffset:%d\n", &grid->_timeZoneRawOffset);
+      fscanf(fp, "isInterval:%d\n", &grid->_isInterval);
+      fscanf(fp, "isTimeStamped:%d\n", &grid->_isTimeStamped);
+      fscanf(fp, "numberOfRanges:%s\n", ignore);
+      fscanf(fp, "storageDataType:%d\n", &grid->_storageDataType);
+    } else {
+      /* defaults */
+      grid->_type = 420;
+      grid->_dataSource = mallocAndCopy("");
+      grid->_version = 1;
+      grid->_dataUnits = mallocAndCopy("mm");
+      grid->_timeZoneID = mallocAndCopy("");
+      grid->_compressionMethod = NO_COMPRESSION;
+      /* need to have CLI input flags for this */
+      grid->_dataType = PER_CUM;
+    }
+
+    /* TODO: proper SRS handling from prj file */
     grid->_srsDefinitionType = 1;
     grid->_srsName = mallocAndCopy("WKT");
     /* char* buffer = NULL; */

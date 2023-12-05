@@ -115,6 +115,7 @@ int extract_grid(long long *ifltab, zStructCatalog *catalogue, int start,
   int idx, i;
   char outfilename[_MAX_PATH];
   char outfilename_prj[_MAX_PATH];
+  char outfilename_info[_MAX_PATH];
   int status = 0;
 
   for (i = start; i < end; i++) {
@@ -158,6 +159,30 @@ int extract_grid(long long *ifltab, zStructCatalog *catalogue, int start,
       fprintf(fp, "\n");
     }
     fclose(fp);
+
+    /* just a workaround to maintain the metadata for now, need to write into better format later */
+    dsspath2filename(outfilename_info, catalogue->pathnameList[i], "dssinfo");
+    fp = fopen(outfilename_info, "w");
+    fprintf(fp, "pathname:%s\n", grid->pathname);
+    fprintf(fp, "structVersion:%d\n", grid->_structVersion);
+    fprintf(fp, "type:%d\n", grid->_type);
+    fprintf(fp, "version:%d\n", grid->_version);
+    fprintf(fp, "dataUnits:%s\n", grid->_dataUnits);
+    fprintf(fp, "dataType:%d\n", grid->_dataType);
+    fprintf(fp, "dataSource:%s\n", grid->_dataSource);
+    fprintf(fp, "compressionMethod:%d\n", grid->_compressionMethod);
+    fprintf(fp, "timeZoneID:%s\n", grid->_timeZoneID);
+    fprintf(fp, "timeZoneRawOffset:%d\n", grid->_timeZoneRawOffset);
+    fprintf(fp, "isInterval:%d\n", grid->_isInterval);
+    fprintf(fp, "isTimeStamped:%d\n", grid->_isTimeStamped);
+    fprintf(fp, "numberOfRanges:%d\n", grid->_numberOfRanges);
+    fprintf(fp, "storageDataType:%d\n", grid->_storageDataType);
+    fclose(fp);
+
+    /* int xi; */
+    /* for (xi=0; xi < grid->_numberOfRanges; xi++){ */
+    /*   printf("%f, %d \n", ((float*)grid->_rangeLimitTable)[xi], grid->_numberEqualOrExceedingRangeLimit[xi]); */
+    /* } */
 
     /* Warning: The given WKT format when inserted to prj file doesn't
        always work */
