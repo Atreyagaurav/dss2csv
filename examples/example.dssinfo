@@ -1,0 +1,14 @@
+pathname:/SHG/RIVER/PRECIP/01AUG2011:0000/01AUG2011:0100/RADAR/
+structVersion:-100
+type:420
+version:0
+dataUnits:mm
+dataType:1
+dataSource:
+compressionMethod:1
+timeZoneID:
+timeZoneRawOffset:0
+isInterval:0
+isTimeStamped:0
+numberOfRanges:2
+storageDataType:0

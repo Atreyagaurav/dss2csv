@@ -1,8 +1,8 @@
 # Maintainer: Gaurav Atreya <allmanpride@gmail.com>
 pkgname=dss2csv
-pkgver=0.6
+pkgver=0.7
 pkgrel=1
-pkgdesc="Extract CSVs from a HEC-DSS file"
+pkgdesc="Conversion from HEC-DSS file to ASCII and vice versa"
 arch=('x86_64')
 license=('GPL3')
 depends=()
