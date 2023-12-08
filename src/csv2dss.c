@@ -63,11 +63,12 @@ int next(FILE* fp, char * buffer, char delim) {
   return i;
 }
 
-int read_csv(char *filename, float **values, char *start_day, int *num_records) {
+int read_csv(char *filename, int **time, float **values, char *start_day, char *start_time, int *num_records) {
   char buffer[1000];
   size_t len;
   size_t read;
-  int header = 0;
+  int header = 0;		/* has header or not */
+  int time_col=0; 		/* has time column or not */
   int start_day_jul;
   int hour,min;
   FILE * fp = fopen(filename, "r");
@@ -83,20 +84,34 @@ int read_csv(char *filename, float **values, char *start_day, int *num_records) 
     if (c == '\n') num_lines++;
   }
 
-  /* *time = malloc(sizeof(int) * (num_lines)); */
+  *time = malloc(sizeof(int) * (num_lines));
   *values = malloc(sizeof(float) * (num_lines));
   
-  if (/* *time == NULL ||  */*values == NULL){
+  if (*time == NULL ||*values == NULL){
     printf("Can't malloc.\n");
     exit(1);
   }
 
   rewind(fp);
   c = getc(fp);
+  int num_col = 1;
   if (c < '0' || c > '9'){
     /* if it has text as the first character assume header line*/
     header = 1;
     num_lines--;
+    /* count the number of columns */
+    while ((c=getc(fp)) != '\n'){
+      if (c == ',') num_col++;
+    }
+    switch (num_col){
+    case 1:
+      printf("Not enough columns in CSV file: %s\n", filename);
+      exit(1);
+    case 3:
+      time_col = 1;
+    default:
+      break;
+    }
   }
   *num_records = num_lines;
   /* Detect the first date, in string and julian */
@@ -110,14 +125,19 @@ int read_csv(char *filename, float **values, char *start_day, int *num_records) 
   strcpy(start_day, buffer);
   start_day_jul = dateToJulian(buffer);
   /* time in HHMM format*/
-  /* read = getdelim(&lineptr, &len, ',', fp); */
-  /* *(buffer + read - 1) = 0; */
-  /* min = atoi(buffer); */
-  /* hour = min / 100; */
-  /* min = min % 100; */
-  
-  /* start_day_jul += hour * 60 + min; */
-  
+  if (time_col) {
+    read = next(fp, buffer, ',');
+    *(buffer + read - 1) = 0;
+    strcpy(start_time, buffer);
+    min = atoi(buffer);
+    hour = min / 100;
+    min = min % 100;
+
+    start_day_jul += hour * 60 + min;
+  }else{
+    /* no time column, assume mid day */
+    strcpy(start_time, "1200");
+  }
   /* Now the values */
   rewind(fp);
   if (header){
@@ -127,16 +147,16 @@ int read_csv(char *filename, float **values, char *start_day, int *num_records) 
   for (i=0; i < num_lines; i++) {
     /* read date */
     read = next(fp, buffer, ',');
-    /* *(*time + i) = (dateToJulian(buffer) - start_day_jul) * 24 * 60; */
-    /* read time in HHMM format
-       uncomment if needed.
-     */
-    /* read = getdelim(&buffer, &len, ',', fp); */
-    /* *(buffer + read - 1) = 0; */
-    /* min = atoi(buffer); */
-    /* hour = min / 100; */
-    /* min = min % 100; */
-    /* *(*time + i) += hour * 60 + min; */
+    *(*time + i) = (dateToJulian(buffer) - start_day_jul) * 24 * 60;
+    /* read time in HHMM format */
+    if (time_col) {
+      read = next(fp, buffer, ',');
+      *(buffer + read - 1) = 0;
+      min = atoi(buffer);
+      hour = min / 100;
+      min = min % 100;
+      *(*time + i) += hour * 60 + min;
+    }
     read = next(fp, buffer, '\n');
     if (read > 0) {
       *(*values + i) = atof(buffer);
@@ -153,11 +173,14 @@ int read_csv(char *filename, float **values, char *start_day, int *num_records) 
 int save_timeseries(long long *ifltab, char **input_files, int num_files) {
   zStructTimeSeries *tss1;
   char start_day[100];
+  char start_time[100];
   int num_records;
   float *fvalues;
   int *itimes;
+  int is_regular = 0;
+  int time_diff;
   int status;
-  int idx, i;
+  int idx, i, j;
   char *infilename;
   char path[_MAX_PATH];
 
@@ -165,18 +188,36 @@ int save_timeseries(long long *ifltab, char **input_files, int num_files) {
     infilename = *(input_files + i);
     filename2dsspath(infilename, path);
 
-    if (!read_csv(infilename, &fvalues, start_day, &num_records)) continue;
+    if (!read_csv(infilename, &itimes, &fvalues, start_day, start_time, &num_records)) continue;
     printf("%5d: %s\n", i + 1, path);
+
+    /* check if the timeseries is regular or not */
+    if (num_records > 1){
+      time_diff = *(itimes + 1) - *itimes;
+      is_regular = 1;
+      for (j = 2; j < num_records; j++){
+	if ((*(itimes + j) - *(itimes + j - 1)) != time_diff){
+	  is_regular = 0;
+	  break;
+	}
+      }
+    }
+    
     /* this fails if the path is just "/A/B/C/D/E/F/" but E as 1Day works, weird */
-    tss1 = zstructTsNewRegFloats(path, fvalues, num_records, start_day, "1200", "CFS","INST-VAL");
-    /* tss1->timeIntervalSeconds = 24 * 60 * 60; */
-    /* tss1 = zstructTsNewIrregFloats(path, fvalues, num_records, itimes, MINUTE_GRANULARITY, start_day, "cfs", "Inst-Val"); */
+    if (is_regular){
+      /* The start offset 1200 is because daily data is considered*/
+      tss1 = zstructTsNewRegFloats(path, fvalues, num_records, start_day, start_time, "CFS","INST-VAL");
+      tss1->timeIntervalSeconds = time_diff;
+    }else{
+      tss1 = zstructTsNewIrregFloats(path, fvalues, num_records, itimes, MINUTE_GRANULARITY, start_day, "CFS", "INST-VAL");
+    }
     status = ztsStore(ifltab, tss1, 1);
     if (status != STATUS_OKAY){
       printf("Err Timeseries Store: %d\n", status);
       return status;
     }
     free(fvalues);
+    free(itimes);
     zstructFree(tss1);
   }
   return STATUS_OKAY;

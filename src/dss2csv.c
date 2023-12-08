@@ -1,5 +1,6 @@
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 
@@ -92,18 +93,19 @@ int extract_timeseries(long long *ifltab, zStructCatalog *catalogue, int start,
     FILE *fp = fopen(outfilename, "w");
     int t;
 
-    fprintf(fp, "date,value\n");
+    fprintf(fp, "date,time,value\n");
     for (t = 0; t < tss1->numberValues; t++) {
       getDateAndTime(tss1->times[t], tss1->timeGranularitySeconds,
                      tss1->julianBaseDate, cdate, sizeof(cdate), ctime,
                      sizeof(ctime));
       if (zisMissingFloat(tss1->floatValues[t])) {
-        fprintf(fp, "%s,\n", cdate);
+        fprintf(fp, "%s,%s,\n", cdate, ctime);
       } else {
-        fprintf(fp, "%s,%.2f\n", cdate, tss1->floatValues[t]);
+        fprintf(fp, "%s,%s,%.2f\n", cdate, ctime, tss1->floatValues[t]);
       }
     }
     fclose(fp);
+    free(tss1);
   }
   return STATUS_OKAY;
 }
