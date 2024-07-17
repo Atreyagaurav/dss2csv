@@ -1,12 +1,13 @@
 # Maintainer: Gaurav Atreya <allmanpride@gmail.com>
 pkgname=dss2csv
 pkgver=0.7
-pkgrel=1
+pkgrel=2
 pkgdesc="Conversion from HEC-DSS file to ASCII and vice versa"
 arch=('x86_64')
 license=('GPL3')
 depends=()
 makedepends=('gcc-libs')
+OPTIONS=(strip !debug)
 
 build() {
     cd "$srcdir"

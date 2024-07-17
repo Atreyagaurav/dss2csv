@@ -382,7 +382,7 @@ int main(int argc, char *argv[]) {
   int status;
 
   if (argc < 4) {
-    if (argv[1][0] != 'h') {
+    if (argc < 2 || argv[1][0] != 'h') {
       printf("Not enough arguments.\n\n");
     }
     print_help(argv[0]);
